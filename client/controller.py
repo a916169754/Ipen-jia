@@ -87,6 +87,6 @@ class HandelResponse(object):
 
     def __req_private_connection(self):
         req_new_tunnel = {
-            'cmd': 'new_private_connection'
+            'cmd': 'new_proxy'
         }
         self.protocol.sendString(json.dumps(req_new_tunnel).encode('utf8'))
