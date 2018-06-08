@@ -1,20 +1,27 @@
-from twisted.internet import protocol
+from twisted.internet.protocol import ServerFactory
 from twisted.protocols.basic import NetstringReceiver
 
 
 class Tunnel(object):
-    tunnels = []
+    tunnels = {}
 
     def __init__(self):
-        self.tunnels = []
+        self.clients = {}
 
-    def new_tunnel(self, port):
-        factory = protocol.ServerFactory()
-        factory.protocol = TunnelProtocol
+    def new_tunnel(self, port, client_id):
+        tunnel = Tunnel.tunnels.get(str(port), None)
+        if tunnel:
+            tunnel.clients[str(client_id)] = None
+        else:
+            factory = TunnelFactory(self)
 
-        from twisted.internet import reactor
+            from twisted.internet import reactor
 
-        reactor.listenTCP(port, factory, interface='0.0.0.0')
+            reactor.listenTCP(port, factory, interface='0.0.0.0')
+            #  记录
+            self.clients[str(client_id)] = None
+            #  self.clients.append({'client_id': client_id, 'protocol': None})
+            Tunnel.tunnels[str(port)] = self
 
 
 class TunnelProtocol(NetstringReceiver):
@@ -22,7 +29,17 @@ class TunnelProtocol(NetstringReceiver):
         pass
 
     def stringReceived(self, info):
-        pass
+        hostname = ''
+        protocol = self.factory.tunnel.clients.get(hostname)
+        if protocol:
+            protocol.sendString(info)
 
     def connectionLost(self, reason):
         pass
+
+
+class TunnelFactory(ServerFactory):
+    protocol = TunnelProtocol
+
+    def __init__(self, tunnel):
+        self.tunnel = tunnel

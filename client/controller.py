@@ -39,16 +39,46 @@ class Controller(object):
 class ControllerProtocol(NetstringReceiver):
     def connectionMade(self):
         log.msg('connect {}: success'.format(self.transport.getPeer()))
+
+    def stringReceived(self, info):
+        res_data = json.loads(info)
+        handel = HandelResponse(res_data, self)
+        handel.start()
+        print(info)
+
+    def connectionLost(self, reason):
+        print('closa Control Connection')
+
+
+class HandelResponse(object):
+    """处理服务器响应"""
+    def __init__(self, res_data: dict, protocol):
+        """
+        Args:
+            res_data: 服务端响应数据
+            protocol: twisted Protocol
+        """
+        self.res_data = res_data
+        self.protocol = protocol
+
+    def start(self):
+        fun = self.get_handel_fun()
+        if fun != "error":
+            fun()
+        else:
+            log.msg('undefined cmd: ', self.res_data.get('res', 'null'))
+            self.protocol.transport.loseConnection()
+
+    def get_handel_fun(self):
+        return {
+            'success': self.__req_new_tunnel,
+        }.get(self.res_data.get('res'), 'error')
+
+    def __req_new_tunnel(self):
         req_new_tunnel = {
-            'client_id': '',
+            'client_id': self.res_data.get('client_id'),
             'os': platform.platform(),
             'cmd': 'new_tunnel'
         }
         # 请求服务端创建隧道
-        self.sendString(json.dumps(req_new_tunnel).encode('utf8'))
-
-    def stringReceived(self, string):
-        print(string)
-
-    def connectionLost(self, reason):
-        print('closa Control Connection')
+        self.protocol.sendString(json.dumps(req_new_tunnel).encode('utf8'))
