@@ -60,7 +60,8 @@ def main():
 
     from twisted.internet import reactor
 
-    reactor.listenTCP(2333, factory, interface='0.0.0.0')
+    a = reactor.listenTCP(2333, factory, interface='0.0.0.0')
+    print(a.port)
 
     reactor.run()
 

@@ -3,9 +3,10 @@ import random
 import string
 
 from twisted.python import log
-
 from twisted.internet import ssl, protocol
 from twisted.protocols.basic import NetstringReceiver
+
+from tunnel import Tunnel
 
 
 class Control(object):
@@ -77,9 +78,19 @@ class HandelRequest(object):
     def get_handel_fun(self):
         return {
             'new_tunnel': self.__new_tunnel,
+            'new_private_connection': self.__new_private_connection,
         }.get(self.req_data.get('cmd'), 'error')
 
     def __new_tunnel(self):
-        from twisted.internet import reactor
+        tunnel = Tunnel()
+        port = tunnel.new_tunnel(self.req_data.get('port', 0), self.req_data.get('client_id'))
 
-        reactor.listenTCP(2333, factory, interface='0.0.0.0')
+        res = {
+            'port': port,
+            'res': 'start_tunnel'
+        }
+
+        self.protocol.sendString(json.dumps(res))
+
+    def __new_private_connection(self):
+        pass

@@ -17,11 +17,14 @@ class Tunnel(object):
 
             from twisted.internet import reactor
 
-            reactor.listenTCP(port, factory, interface='0.0.0.0')
+            p = reactor.listenTCP(port, factory, interface='0.0.0.0')
             #  记录
             self.clients[str(client_id)] = None
             #  self.clients.append({'client_id': client_id, 'protocol': None})
+            if not port:
+                port = p.port
             Tunnel.tunnels[str(port)] = self
+        return port
 
 
 class TunnelProtocol(NetstringReceiver):
