@@ -7,6 +7,7 @@ from twisted.internet import ssl, protocol
 from twisted.protocols.basic import NetstringReceiver
 
 from tunnel import Tunnel
+from connection import ProxyConnServer
 
 
 class Control(object):
@@ -31,6 +32,7 @@ class Control(object):
 
         factory = protocol.ServerFactory()
         factory.protocol = ControlProtocol
+        factory.tls_conf = self.tls_conf
 
         from twisted.internet import reactor
         reactor.listenSSL(self.port, factory, ssl_context)
@@ -49,7 +51,7 @@ class ControlProtocol(NetstringReceiver):
 
     def stringReceived(self, info):
         req_data = json.loads(info)
-        handel = HandelRequest(req_data, self)
+        handel = HandelRequest(req_data, self, self.factory.tls_conf)
         handel.start()
 
     def connectionLost(self, reason):
@@ -58,7 +60,7 @@ class ControlProtocol(NetstringReceiver):
 
 class HandelRequest(object):
     """处理客户端请求"""
-    def __init__(self, req_data: dict, protocol):
+    def __init__(self, req_data: dict, protocol, tls_conf):
         """
         Args:
             req_data: 客户端传递过来的命令数据
@@ -66,6 +68,7 @@ class HandelRequest(object):
         """
         self.req_data = req_data
         self.protocol = protocol
+        self.tls_conf = tls_conf
 
     def start(self):
         fun = self.get_handel_fun()
@@ -89,8 +92,14 @@ class HandelRequest(object):
             'port': port,
             'res': 'start_tunnel'
         }
-
         self.protocol.sendString(json.dumps(res))
 
     def __new_proxy(self):
-        pass
+        tunnel = Tunnel.tunnels.get(self.req_data['client_id'])
+        proxy = ProxyConnServer(self.req_data['id'], self.tls_conf, self.req_data['client_id'], tunnel)
+        proxy.start()
+
+        res = {
+            'res': 'start_proxy'
+        }
+        self.protocol.sendString(json.dumps(res))

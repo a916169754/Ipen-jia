@@ -72,7 +72,8 @@ class HandelResponse(object):
     def get_handel_fun(self):
         return {
             'success': self.__req_new_tunnel,
-            'start_tunnel': self.__req_private_connection,
+            'start_tunnel': self.__req_proxy_connection,
+            'start_proxy': self.__conn_proxy,
         }.get(self.res_data.get('res'), 'error')
 
     def __req_new_tunnel(self):
@@ -85,8 +86,11 @@ class HandelResponse(object):
         # 请求服务端创建隧道
         self.protocol.sendString(json.dumps(req_new_tunnel).encode('utf8'))
 
-    def __req_private_connection(self):
+    def __req_proxy_connection(self):
         req_new_tunnel = {
             'cmd': 'new_proxy'
         }
         self.protocol.sendString(json.dumps(req_new_tunnel).encode('utf8'))
+
+    def __conn_proxy(self):
+        pass
