@@ -27,7 +27,7 @@ class ProxyConnClient(object):
         authority = ssl.Certificate.loadPEM(cert_data)
         options = ssl.optionsForClientTLS(self.domain, authority)
 
-        factory = protocol.ClientFactory()
+        factory = ProxyFactory()
         factory.protocol = ProxyProtocol
         # 开始连接
         from twisted.internet import reactor
@@ -36,40 +36,57 @@ class ProxyConnClient(object):
 
 
 class ProxyProtocol(NetstringReceiver):
-    tunnel_msg = {}
 
     def connectionMade(self):
         log.msg("receive request .... ", self.transport.getPeer())
-        factory = LocalFactory()
-        from twisted.internet import reactor
-        reactor.connectTCP('localhost', 8888, factory)
 
     def stringReceived(self, info):
         req_data = json.loads(info)
-        tunnel_conn = ProxyProtocol.tunnel_msg.get(req_data['id'])
-        tunnel_conn.sendString(req_data['body'])
+
+        factory = LocalFactory(self, req_data['id'], req_data['body'])
+        from twisted.internet import reactor
+        reactor.connectTCP('localhost', 8888, factory)
 
     def connectionLost(self, reason):
         self.factory.tunnel.clients[self.factory.client_id] = None
         log.msg('close connection ')
 
 
+class ProxyFactory(protocol.ClientFactory):
+    protocol = ProxyProtocol
+
+    def clientConnectionFailed(self, connector, reason):
+        #  本地服务未启动，1秒后尝试重新链接
+        from twisted.internet import reactor
+
+        reactor.callLater(1, connector.connect)
+
+    def clientConnectionLost(self, connector, reason):
+        # 本地链接断开
+        print('lost coon')
+
+
 class LocalProtocol(NetstringReceiver):
     def connectionMade(self):
-        log.msg("receive request .... ", self.transport.getPeer())
-        factory = LocalProtocol()
-        from twisted.internet import reactor
-        reactor.connectTCP('localhost', 8888, factory)
+        self.factory.proxy.factory.local = self
+        self.sendString(self.factory.msg_body)
 
     def stringReceived(self, info):
-        req_data = json.loads(info)
-        tunnel_conn = ProxyProtocol.tunnel_msg.get(req_data['id'])
-        tunnel_conn.sendString(req_data['body'])
+        res = {
+            'id': self.factory.msg_id,
+            'body': info
+        }
+        self.factory.proxy.sendString(json.dumps(res))
+        self.transport.loseConnection()
 
     def connectionLost(self, reason):
-        self.factory.tunnel.clients[self.factory.client_id] = None
         log.msg('close connection ')
 
 
 class LocalFactory(protocol.ClientFactory):
     protocol = LocalProtocol
+
+    def __init__(self, proxy, msg_id, msg_body):
+        self.proxy = proxy
+        self.msg_id = msg_id
+        self.msg_body = msg_body
