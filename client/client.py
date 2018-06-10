@@ -11,7 +11,9 @@ def main():
 
     opt = parse_args()
 
-    control = Controller(opt['domain'], opt['host'], opt['control_port'], opt['tls_conf'])
+    control = Controller(
+        opt['domain'], opt['host'], opt['control_port'], opt['tls_conf'], opt['local_port'], opt['tunnel_port']
+    )
     control.connection()
 
     from twisted.internet import reactor

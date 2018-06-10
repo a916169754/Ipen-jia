@@ -5,10 +5,12 @@ from twisted.internet import ssl, protocol
 from twisted.python import log
 from twisted.protocols.basic import NetstringReceiver
 
+from connected import ProxyConnClient
+
 
 class Controller(object):
     """连接服务器"""
-    def __init__(self, domain: str, host: str, port: int, tls_conf: dict):
+    def __init__(self, domain: str, host: str, port: int, tls_conf: dict, local_port: int, tunnel_port: int):
         """
         Args:
             host: 服务器ip
@@ -19,6 +21,8 @@ class Controller(object):
         self.host = host
         self.port = port
         self.tls_conf = tls_conf
+        self.local_port = local_port
+        self.tunnel_port = tunnel_port
 
     def connection(self):
         """连接服务器"""
@@ -30,6 +34,12 @@ class Controller(object):
 
         factory = protocol.ClientFactory()
         factory.protocol = ControllerProtocol
+        factory.domain = self.domain
+        factory.host = self.host
+        factory.tls_conf = self.tls_conf
+        factory.local_port = self.local_port
+        factory.tunnel_port = self.tunnel_port
+
         # 开始连接
         from twisted.internet import reactor
         reactor.connectSSL(self.host, self.port, factory, options, timeout=30)
@@ -41,8 +51,10 @@ class ControllerProtocol(NetstringReceiver):
         log.msg('connect {}: success'.format(self.transport.getPeer()))
 
     def stringReceived(self, info):
-        res_data = json.loads(info)
-        handel = HandelResponse(res_data, self)
+        log.msg(info)
+        res_data = json.loads(info.decode('utf8'))
+        handel = HandelResponse(res_data, self, self.factory.domain, self.factory.host, self.factory.tls_conf,
+                                self.factory.local_port, self.factory.tunnel_port)
         handel.start()
         print(info)
 
@@ -52,7 +64,7 @@ class ControllerProtocol(NetstringReceiver):
 
 class HandelResponse(object):
     """处理服务器响应"""
-    def __init__(self, res_data: dict, protocol):
+    def __init__(self, res_data: dict, protocol, domain, host, tls_conf, local_port, tunnel_port):
         """
         Args:
             res_data: 服务端响应数据
@@ -60,6 +72,11 @@ class HandelResponse(object):
         """
         self.res_data = res_data
         self.protocol = protocol
+        self.domain = domain
+        self.host = host
+        self.tls_conf = tls_conf
+        self.local_port = local_port
+        self.tunnel_port = tunnel_port
 
     def start(self):
         fun = self.get_handel_fun()
@@ -79,7 +96,7 @@ class HandelResponse(object):
     def __req_new_tunnel(self):
         req_new_tunnel = {
             'client_id': self.res_data.get('client_id'),
-            'port': 80,
+            'port': self.tunnel_port,
             'os': platform.platform(),
             'cmd': 'new_tunnel'
         }
@@ -88,9 +105,12 @@ class HandelResponse(object):
 
     def __req_proxy_connection(self):
         req_new_tunnel = {
+            'tunnel_port': self.res_data.get('tunnel_port'),
+            'client_id': self.res_data.get('client_id'),
             'cmd': 'new_proxy'
         }
         self.protocol.sendString(json.dumps(req_new_tunnel).encode('utf8'))
 
     def __conn_proxy(self):
-        pass
+        proxy = ProxyConnClient(self.host, self.res_data.get('port'), self.tls_conf, self.domain, self.local_port)
+        proxy.conn()

@@ -9,7 +9,9 @@ def parse_args():
             'cert': config('SSL_CERT')
         },
         'domain': config('DOMAIN'),
-        'host': config('HOST')
+        'host': config('HOST'),
+        'local_port': config('LOCAL_PORT', cast=int),
+        'tunnel_port': config('TUNNEL_PORT', cast=int)
     }
 
     return options

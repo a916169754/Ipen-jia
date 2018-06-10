@@ -2,37 +2,36 @@ import json
 
 from twisted.python import log
 from twisted.internet import ssl, protocol
-from twisted.protocols.basic import NetstringReceiver
-
-from tunnel import Tunnel
+from twisted.protocols.basic import NetstringReceiver, LineOnlyReceiver
+from twisted.internet.protocol import Protocol
 
 
 class ProxyConnClient(object):
-    def __init__(self, host: str, port: int, tls_conf: dict, domain: str):
+    def __init__(self, host: str, port: int, tls_conf: dict, domain: str, local_port: int):
         """
         Args:
             port: 端口号
             tls_conf: tls 配置信息
-            client_id: 客户端id
-            tunnel: 隧道
+            local_port: 本地端口
         """
         self.host = host
         self.port = port
         self.tls_conf = tls_conf
         self.domain = domain
+        self.local_port = local_port
 
-    def start(self):
+    def conn(self):
         with open(self.tls_conf['cert'], 'r') as f:
             cert_data = f.read()
         authority = ssl.Certificate.loadPEM(cert_data)
         options = ssl.optionsForClientTLS(self.domain, authority)
 
-        factory = ProxyFactory()
+        factory = ProxyFactory(self.local_port)
         factory.protocol = ProxyProtocol
         # 开始连接
         from twisted.internet import reactor
         reactor.connectSSL(self.host, self.port, factory, options, timeout=30)
-        log.msg('connect {}:{}'.format(self.host, self.port))
+        log.msg('proxy connect {}:{}'.format(self.host, self.port))
 
 
 class ProxyProtocol(NetstringReceiver):
@@ -40,23 +39,31 @@ class ProxyProtocol(NetstringReceiver):
     def connectionMade(self):
         log.msg("receive request .... ", self.transport.getPeer())
 
-    def stringReceived(self, info):
-        req_data = json.loads(info)
+    def dataReceived(self, data):
+        log.msg(data)
+        req_data = json.loads(data.decode('utf8'))
 
         factory = LocalFactory(self, req_data['id'], req_data['body'])
         from twisted.internet import reactor
-        reactor.connectTCP('localhost', 8888, factory)
+        reactor.connectTCP('localhost', self.factory.local_port, factory)
+
+    def stringReceived(self, string):
+        pass
 
     def connectionLost(self, reason):
-        self.factory.tunnel.clients[self.factory.client_id] = None
         log.msg('close connection ')
 
 
 class ProxyFactory(protocol.ClientFactory):
     protocol = ProxyProtocol
 
+    def __init__(self, local_port=80):
+        super(ProxyFactory, self).__init__()
+        self.local_port = local_port
+
     def clientConnectionFailed(self, connector, reason):
         #  本地服务未启动，1秒后尝试重新链接
+        print(1)
         from twisted.internet import reactor
 
         reactor.callLater(1, connector.connect)
@@ -66,20 +73,32 @@ class ProxyFactory(protocol.ClientFactory):
         print('lost coon')
 
 
-class LocalProtocol(NetstringReceiver):
+class LocalProtocol(Protocol):
+    def __init__(self):
+        self.res = b""
+
     def connectionMade(self):
         self.factory.proxy.factory.local = self
-        self.sendString(self.factory.msg_body)
+        self.transport.write(self.factory.msg_body.encode('utf8'))
 
-    def stringReceived(self, info):
-        res = {
-            'id': self.factory.msg_id,
-            'body': info
-        }
-        self.factory.proxy.sendString(json.dumps(res))
-        self.transport.loseConnection()
+    def dataReceived(self, data):
+        log.msg(data)
+        #self.res += data
+        #log.msg(data)
+        # res = {
+        #     'id': self.factory.msg_id,
+        #     'body': data.decode('utf8')
+        # }
+        #log.msg(res)
+        res = str(self.factory.msg_id).encode('utf8') + data
+        log.msg(res)
+        #self.factory.proxy.transport.getHandle().sendall(data)
+        self.factory.proxy.sendString(res)
+        #self.transport.loseConnection()
 
     def connectionLost(self, reason):
+        #res = (str(self.factory.msg_id) + '=id-ljl').encode('utf8') + self.res
+        #self.factory.proxy.transport.write(res)
         log.msg('close connection ')
 
 

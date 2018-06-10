@@ -1,7 +1,8 @@
 import json
 
+from twisted.python import log
 from twisted.internet.protocol import ServerFactory
-from twisted.protocols.basic import NetstringReceiver
+from twisted.internet.protocol import Protocol
 
 
 class Tunnel(object):
@@ -24,19 +25,23 @@ class Tunnel(object):
             self.clients[str(client_id)] = None
             #  self.clients.append({'client_id': client_id, 'protocol': None})
             if not port:
-                port = p.port
+                port = p.getHost().port
             Tunnel.tunnels[str(port)] = self
         return port
 
 
-class TunnelProtocol(NetstringReceiver):
+class TunnelProtocol(Protocol):
 
     def connectionMade(self):
-        pass
+        log.msg(1246)
 
-    def stringReceived(self, info):
-        hostname = ''
+    def dataReceived(self, data):
+        hostname = 'www'
         msg_id = str(id(self))
+        if len(msg_id) > 8:
+            msg_id = msg_id[:8]
+        elif len(msg_id) < 8:
+            msg_id = msg_id.zfill(8)
 
         protocol = self.factory.tunnel.clients.get(hostname)
         protocol.tunnel_msg[msg_id] = self
@@ -44,9 +49,9 @@ class TunnelProtocol(NetstringReceiver):
         if protocol:
             msg = {
                 'id': msg_id,
-                'body': info
+                'body': data.decode('utf8')
             }
-            protocol.sendString(json.dumps(msg))
+            protocol.transport.write(json.dumps(msg).encode('utf8'))
 
     def connectionLost(self, reason):
         pass

@@ -42,15 +42,16 @@ class ControlProtocol(NetstringReceiver):
     def connectionMade(self):
         log.msg("receive request .... ", self.transport.getPeer())
         #  随机给客户端生成id， 不考虑排重
-        client_id = ''.join(random.sample(string.ascii_letters + string.digits, 8))
+        # client_id = ''.join(random.sample(string.ascii_letters + string.digits, 8))
+        client_id = 'www'
         res = {
             'client_id': client_id,
             'res': 'success'
         }
-        self.sendString(json.dumps(res))
+        self.sendString(json.dumps(res).encode('utf8'))
 
     def stringReceived(self, info):
-        req_data = json.loads(info)
+        req_data = json.loads(info.decode('utf8'))
         handel = HandelRequest(req_data, self, self.factory.tls_conf)
         handel.start()
 
@@ -89,17 +90,21 @@ class HandelRequest(object):
         port = tunnel.new_tunnel(self.req_data.get('port', 0), self.req_data.get('client_id'))
 
         res = {
-            'port': port,
+            'tunnel_port': port,
+            'client_id': self.req_data.get('client_id'),
             'res': 'start_tunnel'
         }
-        self.protocol.sendString(json.dumps(res))
+        self.protocol.sendString(json.dumps(res).encode('utf8'))
 
     def __new_proxy(self):
-        tunnel = Tunnel.tunnels.get(self.req_data['client_id'])
-        proxy = ProxyConnServer(self.req_data['id'], self.tls_conf, self.req_data['client_id'], tunnel)
-        proxy.start()
+        log.msg(self.req_data)
+        log.msg(Tunnel.tunnels)
+        tunnel = Tunnel.tunnels.get(str(self.req_data['tunnel_port']))
+        proxy = ProxyConnServer(0, self.tls_conf, self.req_data['client_id'], tunnel)
+        port = proxy.listen()
 
         res = {
+            'port': port,
             'res': 'start_proxy'
         }
-        self.protocol.sendString(json.dumps(res))
+        self.protocol.sendString(json.dumps(res).encode('utf8'))
