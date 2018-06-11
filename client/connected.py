@@ -2,7 +2,7 @@ import json
 
 from twisted.python import log
 from twisted.internet import ssl, protocol
-from twisted.protocols.basic import NetstringReceiver, LineOnlyReceiver
+from twisted.protocols.basic import NetstringReceiver
 from twisted.internet.protocol import Protocol
 
 
@@ -61,45 +61,24 @@ class ProxyFactory(protocol.ClientFactory):
         super(ProxyFactory, self).__init__()
         self.local_port = local_port
 
-    def clientConnectionFailed(self, connector, reason):
-        #  本地服务未启动，1秒后尝试重新链接
-        print(1)
-        from twisted.internet import reactor
-
-        reactor.callLater(1, connector.connect)
-
-    def clientConnectionLost(self, connector, reason):
-        # 本地链接断开
-        print('lost coon')
-
 
 class LocalProtocol(Protocol):
-    def __init__(self):
-        self.res = b""
 
     def connectionMade(self):
+        log.msg('data: ', self.factory.msg_body)
+
         self.factory.proxy.factory.local = self
         self.transport.write(self.factory.msg_body.encode('utf8'))
 
     def dataReceived(self, data):
-        log.msg(data)
-        #self.res += data
-        #log.msg(data)
-        # res = {
-        #     'id': self.factory.msg_id,
-        #     'body': data.decode('utf8')
-        # }
-        #log.msg(res)
+        log.msg(data[:20])
+
         res = str(self.factory.msg_id).encode('utf8') + data
-        log.msg(res)
-        #self.factory.proxy.transport.getHandle().sendall(data)
         self.factory.proxy.sendString(res)
-        #self.transport.loseConnection()
 
     def connectionLost(self, reason):
-        #res = (str(self.factory.msg_id) + '=id-ljl').encode('utf8') + self.res
-        #self.factory.proxy.transport.write(res)
-        log.msg('close connection ')
+        res = str(self.factory.msg_id).encode('utf8') + b'local server close'
+        self.factory.proxy.sendString(res)
 
 
 class LocalFactory(protocol.ClientFactory):

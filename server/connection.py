@@ -2,8 +2,7 @@ import json
 
 from twisted.python import log
 from twisted.internet import ssl, protocol
-from twisted.protocols.basic import NetstringReceiver, LineOnlyReceiver
-from twisted.internet.protocol import Protocol
+from twisted.protocols.basic import NetstringReceiver
 
 from tunnel import Tunnel
 
@@ -46,26 +45,15 @@ class ProxyProtocol(NetstringReceiver):
         log.msg("receive request .... ", self.transport.getPeer())
         self.factory.tunnel.clients[self.factory.client_id] = self
 
-    #def dataReceived(self, data):
-        # print(data)
-        # #req_data = json.loads(data.decode('utf8'))
-        # req_data = data.decode('utf8').split('=id-ljl')
-        # log.msg(data)
-        # tunnel_conn = ProxyProtocol.tunnel_msg.get(str(req_data[0]))
-        # if not tunnel_conn:
-        #     log.msg(req_data[0])
-        # tunnel_conn.transport.write(req_data[1].encode('utf8'))
-        #print(11111)
-
     def stringReceived(self, data):
-        # req_data = json.loads(data.decode('utf8'))
-        #log.msg(data)
         log.msg(str(data[:8]))
-        #req_data = data.decode().split('=id-ljl')
-        #log.msg(data)
+
         tunnel_conn = ProxyProtocol.tunnel_msg.get(data[:8].decode('utf8'))
+        if data[8:] == b'local server close':
+            tunnel_conn.transport.loseConnection()
+            return
         tunnel_conn.transport.write(data[8:])
 
     def connectionLost(self, reason):
-        #  self.factory.tunnel.clients[self.factory.client_id] = None
+        self.factory.tunnel.clients.pop(self.factory.client_id)
         log.msg('close connection ')

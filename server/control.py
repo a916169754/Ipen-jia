@@ -42,8 +42,8 @@ class ControlProtocol(NetstringReceiver):
     def connectionMade(self):
         log.msg("receive request .... ", self.transport.getPeer())
         #  随机给客户端生成id， 不考虑排重
-        # client_id = ''.join(random.sample(string.ascii_letters + string.digits, 8))
-        client_id = 'www'
+        client_id = ''.join(random.sample(string.ascii_letters + string.digits, 8)).lower()
+        #  client_id = 'www'
         res = {
             'client_id': client_id,
             'res': 'success'
@@ -56,7 +56,7 @@ class ControlProtocol(NetstringReceiver):
         handel.start()
 
     def connectionLost(self, reason):
-        log.msg('close connection ')
+        log.msg('control connection lost ', self.transport.getPeer())
 
 
 class HandelRequest(object):

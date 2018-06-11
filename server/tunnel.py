@@ -1,4 +1,5 @@
 import json
+import re
 
 from twisted.python import log
 from twisted.internet.protocol import ServerFactory
@@ -23,7 +24,7 @@ class Tunnel(object):
             p = reactor.listenTCP(port, factory, interface='0.0.0.0')
             #  记录
             self.clients[str(client_id)] = None
-            #  self.clients.append({'client_id': client_id, 'protocol': None})
+
             if not port:
                 port = p.getHost().port
             Tunnel.tunnels[str(port)] = self
@@ -32,11 +33,15 @@ class Tunnel(object):
 
 class TunnelProtocol(Protocol):
 
-    def connectionMade(self):
-        log.msg(1246)
-
     def dataReceived(self, data):
-        hostname = 'www'
+        p = re.compile('(?<=Host: ).+?(?=\r\n)')
+        host = re.search(p, data.decode('utf8'))
+        if not host:
+            log.msg(b'unmatched host')
+            self.transport.write('unmatched host')
+            self.transport.loseConnection()
+            return
+        hostname = host[0].split('.')[0]
         msg_id = str(id(self))
         if len(msg_id) > 8:
             msg_id = msg_id[:8]
@@ -44,17 +49,18 @@ class TunnelProtocol(Protocol):
             msg_id = msg_id.zfill(8)
 
         protocol = self.factory.tunnel.clients.get(hostname)
-        protocol.tunnel_msg[msg_id] = self
-
         if protocol:
+            protocol.tunnel_msg[msg_id] = self
+
             msg = {
                 'id': msg_id,
                 'body': data.decode('utf8')
             }
             protocol.transport.write(json.dumps(msg).encode('utf8'))
-
-    def connectionLost(self, reason):
-        pass
+        else:
+            log.msg('unknown server')
+            self.transport.write(b'unknown server')
+            self.transport.loseConnection()
 
 
 class TunnelFactory(ServerFactory):

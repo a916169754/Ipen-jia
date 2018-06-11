@@ -62,6 +62,20 @@ class ControllerProtocol(NetstringReceiver):
         print('closa Control Connection')
 
 
+class ControllerFactory(protocol.ClientFactory):
+    protocol = ControllerProtocol
+
+    def clientConnectionFailed(self, connector, reason):
+        #  服务端未启动，1秒后尝试重新链接
+        from twisted.internet import reactor
+
+        reactor.callLater(1, connector.connect)
+
+    def clientConnectionLost(self, connector, reason):
+        # 服务端连接断开
+        log.msg('lost server coon')
+
+
 class HandelResponse(object):
     """处理服务器响应"""
     def __init__(self, res_data: dict, protocol, domain, host, tls_conf, local_port, tunnel_port):
@@ -94,6 +108,8 @@ class HandelResponse(object):
         }.get(self.res_data.get('res'), 'error')
 
     def __req_new_tunnel(self):
+        log.msg('tunnel url: {}.{}:{}'.format(self.res_data.get('client_id'), self.domain, self.tunnel_port))
+
         req_new_tunnel = {
             'client_id': self.res_data.get('client_id'),
             'port': self.tunnel_port,
