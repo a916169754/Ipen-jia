@@ -1,26 +1,26 @@
 # Ipen-jia
 
-?????https://blog.csdn.net/isoyy/article/details/80663469
+博客地址：https://blog.csdn.net/isoyy/article/details/80663469
 
-???????
+配置文件说明：
 
-??????
-    CONTROL_CONNECTION_PORT control?????
+服务端配置：
+    CONTROL_CONNECTION_PORT control连接的端口
 
-    SSL_PRIVATE ?????
+    SSL_PRIVATE 私钥的位置
 
-    SSL_CERT ?????
+    SSL_CERT 证书的位置
 
 
-??????
-    CONTROL_CONNECTION_PORT control?????
+客户端配置：
+    CONTROL_CONNECTION_PORT control连接的端口
 
-    DOMAIN ??
+    DOMAIN 域名
 
-    HOST = ???ip
+    HOST = 服务器ip
 
-    SSL_CERT ????
+    SSL_CERT 证书位置
 
-    LOCAL_PORT ????????
+    LOCAL_PORT 本地服务所在端口
 
-    TUNNEL_PORT tunnel??
+    TUNNEL_PORT tunnel端口
