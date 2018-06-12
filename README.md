@@ -5,6 +5,7 @@
 配置文件说明：
 
 服务端配置：
+
     CONTROL_CONNECTION_PORT control连接的端口
 
     SSL_PRIVATE 私钥的位置
@@ -13,6 +14,7 @@
 
 
 客户端配置：
+
     CONTROL_CONNECTION_PORT control连接的端口
 
     DOMAIN 域名

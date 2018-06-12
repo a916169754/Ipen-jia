@@ -1,7 +1,4 @@
-#  忽略pychrom配置文件
+#  蹇界暐pychrom鏂囦欢
 .idea/
 
-#  忽略pyc文件
 *.pyc
-
-*.env
