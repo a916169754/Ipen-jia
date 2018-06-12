@@ -40,6 +40,9 @@ class ProxyProtocol(NetstringReceiver):
         log.msg("receive request .... ", self.transport.getPeer())
 
     def dataReceived(self, data):
+        """
+        接受到数据时，转发给本地端口
+        """
         log.msg(data)
         req_data = json.loads(data.decode('utf8'))
 
@@ -71,6 +74,10 @@ class LocalProtocol(Protocol):
         self.transport.write(self.factory.msg_body.encode('utf8'))
 
     def dataReceived(self, data):
+        """
+        将本地服务的回复回传给服务端
+        数据头部增加消息id，用以区分不同客户端的消息
+        """
         log.msg(data[:20])
 
         res = str(self.factory.msg_id).encode('utf8') + data
